@@ -1,6 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const runSimulationStep = require('./engine');
+const runSimulationStep = require('./simulator/engine');
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
