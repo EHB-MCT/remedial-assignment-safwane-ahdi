@@ -12,23 +12,39 @@ async function runSimulationStep() {
     // 1. Pick a random product
     const randomProduct = products[Math.floor(Math.random() * products.length)];
 
-    if (randomProduct.stock <= 0) {
+    // 2. Simulate a purchase (if in stock)
+    if (randomProduct.stock > 0) {
+      randomProduct.stock -= 1;
+      randomProduct.salesCount += 1;
+      randomProduct.lastSoldAt = new Date();
+
+      // Price increase if sales are high
+      if (randomProduct.salesCount % 5 === 0) {
+        randomProduct.price = Math.round(randomProduct.price * 1.1);
+        console.log(`🔥 ${randomProduct.name} is selling fast. Price increased!`);
+      }
+
+      await randomProduct.save();
+      console.log(`💸 Simulated purchase: ${randomProduct.name} | New stock: ${randomProduct.stock} | Price: €${randomProduct.price}`);
+    } else {
       console.log(`${randomProduct.name} is out of stock.`);
-      return;
     }
+    
+    // 3. Price drop for cold products
+    const now = new Date();
+    for (const product of products) {
+      if (!product.lastSoldAt) continue;
 
-    // 2. Simulate a purchase
-    randomProduct.stock -= 1;
-    randomProduct.salesCount += 1;
+      const timeSinceLastSale = now - new Date(product.lastSoldAt);
+      const timeLimit = 1000 * 60 * 0.5; 
 
-    // 3. Adjust price based on sales count 
-    if (randomProduct.salesCount % 5 === 0) {
-      randomProduct.price = Math.round(randomProduct.price * 1.1); // Increase by 10%
-      console.log(`🔥 ${randomProduct.name} is selling fast. Price increased!`);
+      if (timeSinceLastSale > timeLimit) {
+        product.price = Math.max(1, Math.round(product.price * 0.9)); 
+        product.lastSoldAt = null;
+        await product.save();
+        console.log(`📉 ${product.name} is cold. Price dropped to €${product.price}`);
+      }
     }
-
-    await randomProduct.save();
-    console.log(`💸 Simulated purchase: ${randomProduct.name} | New stock: ${randomProduct.stock} | Price: €${randomProduct.price}`);
 
   } catch (err) {
     console.error('❌ Simulation error:', err);

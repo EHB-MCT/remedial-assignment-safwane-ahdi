@@ -5,7 +5,8 @@ const productSchema = new mongoose.Schema({
   type: { type: String, enum: ['CPU', 'GPU', 'RAM'], required: true },
   price: { type: Number, required: true },
   stock: { type: Number, required: true },
-  salesCount: { type: Number, default: 0 }
+  salesCount: { type: Number, default: 0 },
+  lastSoldAt: { type: Date, default: null }
 });
 
 module.exports = mongoose.model('Product', productSchema);

@@ -6,10 +6,10 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('🧠 Connected to MongoDB. Starting simulation...');
     
-    // Run simulation every 5 seconds
+    // Simulation tick interval
     setInterval(() => {
       runSimulationStep();
-    }, 5000);
+    }, 2000);
 
   })
   .catch((err) => {
