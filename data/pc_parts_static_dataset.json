@@ -1,0 +1,194 @@
+[
+  {
+    "name": "Intel Core i9-14900K",
+    "type": "CPU",
+    "price": 107800,
+    "stock": 12,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "AMD Ryzen 9 7950X",
+    "type": "CPU",
+    "price": 28300,
+    "stock": 7,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Intel Core i5-13600K",
+    "type": "CPU",
+    "price": 144000,
+    "stock": 6,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "AMD Ryzen 7 7700X",
+    "type": "CPU",
+    "price": 9100,
+    "stock": 13,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "NVIDIA GeForce RTX 4090",
+    "type": "GPU",
+    "price": 73900,
+    "stock": 14,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "AMD Radeon RX 7900 XTX",
+    "type": "GPU",
+    "price": 85600,
+    "stock": 10,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "NVIDIA GeForce RTX 4070 Ti",
+    "type": "GPU",
+    "price": 127000,
+    "stock": 19,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Intel Arc A770",
+    "type": "GPU",
+    "price": 90300,
+    "stock": 15,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Corsair Vengeance 32GB DDR5",
+    "type": "RAM",
+    "price": 77800,
+    "stock": 17,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "G.Skill Trident Z5 32GB DDR5",
+    "type": "RAM",
+    "price": 140800,
+    "stock": 17,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Kingston Fury Beast 16GB DDR4",
+    "type": "RAM",
+    "price": 157300,
+    "stock": 18,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "TeamGroup T-Force Delta RGB 32GB DDR4",
+    "type": "RAM",
+    "price": 82200,
+    "stock": 16,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Samsung 980 Pro 1TB NVMe",
+    "type": "SSD",
+    "price": 97000,
+    "stock": 9,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "WD Black SN850X 1TB NVMe",
+    "type": "SSD",
+    "price": 147700,
+    "stock": 16,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Crucial P5 Plus 1TB NVMe",
+    "type": "SSD",
+    "price": 73600,
+    "stock": 8,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Kingston NV2 1TB NVMe",
+    "type": "SSD",
+    "price": 54100,
+    "stock": 19,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "ASUS ROG Strix Z790-E",
+    "type": "Motherboard",
+    "price": 17800,
+    "stock": 15,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "MSI MAG B650 Tomahawk",
+    "type": "Motherboard",
+    "price": 124400,
+    "stock": 15,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Gigabyte X670 AORUS Elite",
+    "type": "Motherboard",
+    "price": 154700,
+    "stock": 7,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "ASRock B660M Steel Legend",
+    "type": "Motherboard",
+    "price": 20700,
+    "stock": 14,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Corsair RM850x",
+    "type": "Power Supply",
+    "price": 111300,
+    "stock": 8,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "EVGA SuperNOVA 850 G6",
+    "type": "Power Supply",
+    "price": 30400,
+    "stock": 12,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Seasonic Focus GX-750",
+    "type": "Power Supply",
+    "price": 122700,
+    "stock": 17,
+    "salesCount": 0,
+    "lastSoldAt": null
+  },
+  {
+    "name": "Cooler Master MWE Gold 750",
+    "type": "Power Supply",
+    "price": 33600,
+    "stock": 13,
+    "salesCount": 0,
+    "lastSoldAt": null
+  }
+]

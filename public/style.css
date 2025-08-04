@@ -37,3 +37,18 @@ body {
     text-align: left;
   }
   
+  .flash-update {
+    background-color: #fffbcc;
+    transition: background-color 0.8s ease;
+  }
+
+  .dashboard-summary {
+    background: #fff;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #333;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  

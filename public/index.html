@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Product Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <div class="dashboard">
     <aside class="sidebar">
@@ -15,6 +17,12 @@
       <header>
         <h1>Product Overview</h1>
       </header>
+
+      <section id="summary" class="dashboard-summary">
+        <p id="totalValue"></p>
+        <p id="topSeller"></p>
+        <p id="outOfStockCount"></p>
+      </section>
 
       <section id="product-list">
         <table>
@@ -28,13 +36,15 @@
             </tr>
           </thead>
           <tbody id="product-body">
-            
+
           </tbody>
         </table>
       </section>
     </main>
   </div>
 
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>

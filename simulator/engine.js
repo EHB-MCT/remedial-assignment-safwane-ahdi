@@ -1,6 +1,6 @@
 const Product = require('../models/Product');
 
-async function runSimulationStep() {
+async function runSimulationStep(io) {
     try {
         const products = await Product.find();
 
@@ -9,16 +9,13 @@ async function runSimulationStep() {
             return;
         }
 
-        // 1. Pick a random product
         const randomProduct = products[Math.floor(Math.random() * products.length)];
 
-        // 2. Simulate a purchase (if in stock)
         if (randomProduct.stock > 0) {
             randomProduct.stock -= 1;
             randomProduct.salesCount += 1;
             randomProduct.lastSoldAt = new Date();
 
-            // Price increase if sales are high
             if (randomProduct.salesCount % 5 === 0) {
                 randomProduct.price = Math.round(randomProduct.price * 1.1);
                 console.log(`🔥 ${randomProduct.name} is selling fast. Price increased!`);
@@ -30,7 +27,6 @@ async function runSimulationStep() {
             console.log(`${randomProduct.name} is out of stock.`);
         }
 
-        // 3. Price drop for cold products
         const now = new Date();
         for (const product of products) {
             if (!product.lastSoldAt) continue;
@@ -46,17 +42,20 @@ async function runSimulationStep() {
             }
         }
 
-        // 4. Restock out-of-stock products
         for (const product of products) {
             if (product.stock === 0) {
-                if (Math.random() < 0.1) { // 10% chance to restock
-                    const restockAmount = Math.floor(Math.random() * 3) + 3; // Restock 3–5 units
+                if (Math.random() < 0.1) {
+                    const restockAmount = Math.floor(Math.random() * 3) + 3;
                     product.stock += restockAmount;
                     await product.save();
                     console.log(`📦 ${product.name} was restocked with ${restockAmount} units!`);
                 }
             }
         }
+
+        // ✅ Emit real-time update to dashboard clients
+        const updatedProducts = await Product.find();
+        io.emit('productsUpdated', updatedProducts);
 
     } catch (err) {
         console.error('❌ Simulation error:', err);
