@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
     const ChartLib = Chart.Chart || Chart;
   
-    if (window.topSellersChart) {
+    if (window.topSellersChart && window.topSellersChart.data && window.topSellersChart.data.datasets[0]) {
       console.log('[CHART] Updating existing chart...');
       window.topSellersChart.data.labels = labels;
       window.topSellersChart.data.datasets[0].data = sales;
@@ -142,5 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       console.log('[CHART] Chart created successfully');
     }
+    
   }
 });  
