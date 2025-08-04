@@ -58,8 +58,37 @@ async function runSimulationStep() {
             }
         }
 
+        maybeTriggerEvent(products);
+        applyEvents(products);
+
     } catch (err) {
         console.error('❌ Simulation error:', err);
+    }
+}
+
+function maybeTriggerEvent(products) {
+    if (Math.random() < 0.05) { // 5% chance per step
+        const event = {
+            name: 'Flash Sale',
+            type: 'global',
+            effect: 'priceDrop',
+            magnitude: 0.8,
+            durationMs: 1000 * 60 * 2, // 2 min
+            startedAt: new Date()
+        };
+        activeEvents.push(event);
+        console.log(`⚡ EVENT TRIGGERED: ${event.name}`);
+    }
+}
+
+function cleanupExpiredEvents() {
+    const now = Date.now();
+    for (let i = activeEvents.length - 1; i >= 0; i--) {
+        const event = activeEvents[i];
+        if (now - event.startedAt.getTime() > event.durationMs) {
+            console.log(`⏱️ EVENT ENDED: ${event.name}`);
+            activeEvents.splice(i, 1);
+        }
     }
 }
 
