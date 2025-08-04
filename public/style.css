@@ -51,4 +51,6 @@ body {
     line-height: 1.6;
   }
 
-  
+  canvas {
+    border: 1px solid red;
+  }

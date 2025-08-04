@@ -5,6 +5,13 @@
   <meta charset="UTF-8">
   <title>Product Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    console.log('[DEBUG] Chart is:', typeof Chart);
+  </script>
+  <script src="app.js"></script>
+
 </head>
 
 <body>
@@ -24,6 +31,8 @@
         <p id="outOfStockCount"></p>
       </section>
 
+      <canvas id="topSellersChart" width="1000" height="1000"></canvas>
+
       <section id="product-list">
         <table>
           <thead>
@@ -42,9 +51,6 @@
       </section>
     </main>
   </div>
-
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="app.js"></script>
 </body>
 
 </html>

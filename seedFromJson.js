@@ -10,9 +10,18 @@ mongoose.connect(process.env.MONGO_URI, {
   .then(async () => {
     console.log('🌱 Connected to MongoDB... Seeding static dataset');
 
-    await Product.deleteMany({});
-    await Product.insertMany(data);
+    try {
+      await mongoose.connection.db.dropCollection('products');
+      console.log('🗑️ Dropped existing products collection');
+    } catch (err) {
+      if (err.code === 26) {
+        console.log('ℹ️ Collection does not exist. Skipping drop.');
+      } else {
+        throw err;
+      }
+    }
 
+    await Product.insertMany(data);
     console.log('✅ Static seeding complete');
     process.exit();
   })
