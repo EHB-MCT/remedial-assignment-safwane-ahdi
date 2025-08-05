@@ -11,7 +11,20 @@ async function runSimulationStep(io) {
       return;
     }
 
-    const randomProduct = products[Math.floor(Math.random() * products.length)];
+    const now = new Date();
+
+    // Check for boostDemand (Hype Wave)
+    let boostedProductIds = activeEvents
+      .filter(e => e.effect === 'boostDemand')
+      .map(e => e.productId?.toString());
+
+    let randomProduct;
+    if (boostedProductIds.length && Math.random() < 0.7) {
+      const boosted = products.filter(p => boostedProductIds.includes(p._id.toString()));
+      randomProduct = boosted[Math.floor(Math.random() * boosted.length)];
+    } else {
+      randomProduct = products[Math.floor(Math.random() * products.length)];
+    }
 
     if (randomProduct.stock > 0) {
       randomProduct.stock -= 1;
@@ -29,14 +42,11 @@ async function runSimulationStep(io) {
       console.log(`${randomProduct.name} is out of stock.`);
     }
 
-    const now = new Date();
+    // Price drop for cold products
     for (const product of products) {
       if (!product.lastSoldAt) continue;
-
       const timeSinceLastSale = now - new Date(product.lastSoldAt);
-      const timeLimit = 1000 * 60 * 0.5;
-
-      if (timeSinceLastSale > timeLimit) {
+      if (timeSinceLastSale > 1000 * 60 * 0.5) {
         product.price = Math.max(1, Math.round(product.price * 0.9));
         product.lastSoldAt = null;
         await product.save();
@@ -44,9 +54,11 @@ async function runSimulationStep(io) {
       }
     }
 
-    for (const product of products) {
-      if (product.stock === 0) {
-        if (Math.random() < 0.1) {
+    // Restock unless restricted by an event
+    const stockRestricted = activeEvents.some(e => e.effect === 'restrictStock');
+    if (!stockRestricted) {
+      for (const product of products) {
+        if (product.stock === 0 && Math.random() < 0.1) {
           const restockAmount = Math.floor(Math.random() * 3) + 3;
           product.stock += restockAmount;
           await product.save();
@@ -69,16 +81,37 @@ async function runSimulationStep(io) {
 
 async function maybeTriggerEvent(products) {
   if (Math.random() < 0.05) {
-    const event = {
-      name: 'Flash Sale',
-      type: 'global',
-      effect: 'priceDrop',
-      magnitude: 0.8,
+    const eventTypes = ['Flash Sale', 'Price Surge', 'Supply Chain Disruption', 'Hype Wave'];
+    const typePicked = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+
+    const now = new Date();
+    let event = {
+      name: '',
+      type: '',
+      effect: '',
+      magnitude: 1,
       durationMs: 1000 * 60 * 2,
-      startedAt: new Date(),
+      startedAt: now,
       endedAt: null,
-      affected: [] // store applied product IDs
+      affected: []
     };
+
+    if (typePicked === 'Flash Sale') {
+      event = { ...event, name: 'Flash Sale', type: 'global', effect: 'priceDrop', magnitude: 0.8 };
+    } else if (typePicked === 'Price Surge') {
+      event = { ...event, name: 'Price Surge', type: 'global', effect: 'priceIncrease', magnitude: 1.2 };
+    } else if (typePicked === 'Supply Chain Disruption') {
+      event = { ...event, name: 'Supply Chain Disruption', type: 'global', effect: 'restrictStock' };
+    } else if (typePicked === 'Hype Wave') {
+      const randomProduct = products[Math.floor(Math.random() * products.length)];
+      event = {
+        ...event,
+        name: 'Hype Wave',
+        type: 'product',
+        effect: 'boostDemand',
+        productId: randomProduct._id
+      };
+    }
 
     activeEvents.push(event);
     await Event.create(event);
@@ -88,16 +121,17 @@ async function maybeTriggerEvent(products) {
 
 async function applyEvents(products) {
   for (const event of activeEvents) {
-    if (event.type === 'global' && event.effect === 'priceDrop') {
-      if (!event.affected) event.affected = [];
+    if (!event.affected) event.affected = [];
 
+    if (event.effect === 'priceDrop' || event.effect === 'priceIncrease') {
+      const multiplier = event.magnitude;
       for (const product of products) {
-        const productId = product._id.toString();
-        if (!event.affected.includes(productId)) {
-          product.price = Math.max(1, Math.round(product.price * event.magnitude));
+        const id = product._id.toString();
+        if (!event.affected.includes(id)) {
+          product.price = Math.max(1, Math.round(product.price * multiplier));
           await product.save();
-          event.affected.push(productId);
-          console.log(`💥 EVENT EFFECT: ${product.name} discounted to €${product.price}`);
+          event.affected.push(id);
+          console.log(`💥 ${event.name} effect applied to ${product.name}: €${product.price}`);
         }
       }
     }
@@ -106,19 +140,15 @@ async function applyEvents(products) {
 
 async function cleanupExpiredEvents() {
   const now = Date.now();
-
   for (let i = activeEvents.length - 1; i >= 0; i--) {
     const event = activeEvents[i];
-    const eventDuration = now - new Date(event.startedAt).getTime();
-
-    if (eventDuration > event.durationMs) {
+    const duration = now - new Date(event.startedAt).getTime();
+    if (duration > event.durationMs) {
       console.log(`⏱️ EVENT ENDED: ${event.name}`);
-
       await Event.updateOne(
         { name: event.name, startedAt: event.startedAt },
         { endedAt: new Date() }
       );
-
       activeEvents.splice(i, 1);
     }
   }
