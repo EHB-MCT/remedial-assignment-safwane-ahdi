@@ -7,7 +7,8 @@ const eventSchema = new mongoose.Schema({
     effect: String, 
     magnitude: Number, 
     durationMs: Number, 
-    startedAt: Date
+    startedAt: Date,
+    endedAt: Date
 });
 
 module.exports = mongoose.model('Event', eventSchema);
