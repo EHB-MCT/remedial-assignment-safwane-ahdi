@@ -144,7 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateTopSellersChart(products);
-renderStockDistributionChart(products);
+    renderStockDistributionChart(products);
+    updateStockTimelineChart(products);
   }
 
   function updateTopSellersChart(products) {
@@ -198,56 +199,111 @@ renderStockDistributionChart(products);
 
   let stockDistributionChart;
 
-function renderStockDistributionChart(products) {
-  const stockByType = {};
+  function renderStockDistributionChart(products) {
+    const stockByType = {};
 
-  products.forEach(product => {
-    if (!stockByType[product.type]) {
-      stockByType[product.type] = 0;
+    products.forEach(product => {
+      if (!stockByType[product.type]) {
+        stockByType[product.type] = 0;
+      }
+      stockByType[product.type] += product.stock;
+    });
+
+    const labels = Object.keys(stockByType);
+    const data = Object.values(stockByType);
+
+    const ctx = document.getElementById('stockDistributionChart').getContext('2d');
+
+    if (stockDistributionChart) {
+      stockDistributionChart.destroy();
     }
-    stockByType[product.type] += product.stock;
-  });
 
-  const labels = Object.keys(stockByType);
-  const data = Object.values(stockByType);
-
-  const ctx = document.getElementById('stockDistributionChart').getContext('2d');
-
-  if (stockDistributionChart) {
-    stockDistributionChart.destroy();
-  }
-
-  stockDistributionChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Stock by Product Type',
-        data: data,
-        backgroundColor: [
-          '#4e79a7',
-          '#f28e2b',
-          '#e15759',
-          '#76b7b2',
-          '#59a14f',
-          '#edc949',
-          '#af7aa1',
-          '#ff9da7'
-        ]
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: 'right'
-        },
-        title: {
-          display: true,
-          text: 'Stock Distribution by Product Type'
+    stockDistributionChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Stock by Product Type',
+          data: data,
+          backgroundColor: [
+            '#4e79a7',
+            '#f28e2b',
+            '#e15759',
+            '#76b7b2',
+            '#59a14f',
+            '#edc949',
+            '#af7aa1',
+            '#ff9da7'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'right'
+          },
+          title: {
+            display: true,
+            text: 'Stock Distribution by Product Type'
+          }
         }
       }
+    });
+  }
+
+  let stockTimelineChart;
+  const stockTimelineData = {
+    labels: [], // Timestamps
+    data: []    // Total stock value over time
+  };
+
+  function updateStockTimelineChart(products) {
+    const timestamp = new Date().toLocaleTimeString();
+    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+
+    // Keep max 20 points
+    if (stockTimelineData.labels.length >= 20) {
+      stockTimelineData.labels.shift();
+      stockTimelineData.data.shift();
     }
-  });
-}
+
+    stockTimelineData.labels.push(timestamp);
+    stockTimelineData.data.push(totalStock);
+
+    const ctx = document.getElementById('stockTimelineChart').getContext('2d');
+
+    if (stockTimelineChart) {
+      stockTimelineChart.data.labels = stockTimelineData.labels;
+      stockTimelineChart.data.datasets[0].data = stockTimelineData.data;
+      stockTimelineChart.update();
+    } else {
+      stockTimelineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: stockTimelineData.labels,
+          datasets: [{
+            label: 'Total Stock Over Time',
+            data: stockTimelineData.data,
+            fill: false,
+            borderColor: '#4e79a7',
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              title: { display: true, text: 'Time' }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Total Stock Units' }
+            }
+          }
+        }
+      });
+    }
+  }
+
 });
