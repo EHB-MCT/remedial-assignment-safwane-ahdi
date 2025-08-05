@@ -8,8 +8,8 @@ router.get('/', async (req, res) => {
 });
 
 router.get('/active', async (req, res) => {
-    const activeEvent = await Event.findOne({ isActive: true }).sort({ startedAt: -1 });
-    res.json(activeEvent);
-  });
+  const activeEvent = await Event.findOne({ endedAt: null }).sort({ startedAt: -1 });
+  res.json(activeEvent || {});
+});
 
 module.exports = router;
