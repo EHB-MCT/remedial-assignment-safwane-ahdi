@@ -4,66 +4,66 @@ const activeEvents = [];
 
 async function runSimulationStep(io) {
   try {
-      const products = await Product.find();
+    const products = await Product.find();
 
-      if (products.length === 0) {
-          console.log('No products to simulate.');
-          return;
+    if (products.length === 0) {
+      console.log('No products to simulate.');
+      return;
+    }
+
+    const randomProduct = products[Math.floor(Math.random() * products.length)];
+
+    if (randomProduct.stock > 0) {
+      randomProduct.stock -= 1;
+      randomProduct.salesCount += 1;
+      randomProduct.lastSoldAt = new Date();
+
+      if (randomProduct.salesCount % 5 === 0) {
+        randomProduct.price = Math.round(randomProduct.price * 1.1);
+        console.log(`🔥 ${randomProduct.name} is selling fast. Price increased!`);
       }
 
-      const randomProduct = products[Math.floor(Math.random() * products.length)];
+      await randomProduct.save();
+      console.log(`💸 Simulated purchase: ${randomProduct.name} | New stock: ${randomProduct.stock} | Price: €${randomProduct.price}`);
+    } else {
+      console.log(`${randomProduct.name} is out of stock.`);
+    }
 
-      if (randomProduct.stock > 0) {
-          randomProduct.stock -= 1;
-          randomProduct.salesCount += 1;
-          randomProduct.lastSoldAt = new Date();
+    const now = new Date();
+    for (const product of products) {
+      if (!product.lastSoldAt) continue;
 
-          if (randomProduct.salesCount % 5 === 0) {
-              randomProduct.price = Math.round(randomProduct.price * 1.1);
-              console.log(`🔥 ${randomProduct.name} is selling fast. Price increased!`);
-          }
+      const timeSinceLastSale = now - new Date(product.lastSoldAt);
+      const timeLimit = 1000 * 60 * 0.5;
 
-          await randomProduct.save();
-          console.log(`💸 Simulated purchase: ${randomProduct.name} | New stock: ${randomProduct.stock} | Price: €${randomProduct.price}`);
-      } else {
-          console.log(`${randomProduct.name} is out of stock.`);
+      if (timeSinceLastSale > timeLimit) {
+        product.price = Math.max(1, Math.round(product.price * 0.9));
+        product.lastSoldAt = null;
+        await product.save();
+        console.log(`📉 ${product.name} is cold. Price dropped to €${product.price}`);
       }
+    }
 
-      const now = new Date();
-      for (const product of products) {
-          if (!product.lastSoldAt) continue;
-
-          const timeSinceLastSale = now - new Date(product.lastSoldAt);
-          const timeLimit = 1000 * 60 * 0.5;
-
-          if (timeSinceLastSale > timeLimit) {
-              product.price = Math.max(1, Math.round(product.price * 0.9));
-              product.lastSoldAt = null;
-              await product.save();
-              console.log(`📉 ${product.name} is cold. Price dropped to €${product.price}`);
-          }
+    for (const product of products) {
+      if (product.stock === 0) {
+        if (Math.random() < 0.1) {
+          const restockAmount = Math.floor(Math.random() * 3) + 3;
+          product.stock += restockAmount;
+          await product.save();
+          console.log(`📦 ${product.name} was restocked with ${restockAmount} units!`);
+        }
       }
+    }
 
-      for (const product of products) {
-          if (product.stock === 0) {
-              if (Math.random() < 0.1) {
-                  const restockAmount = Math.floor(Math.random() * 3) + 3;
-                  product.stock += restockAmount;
-                  await product.save();
-                  console.log(`📦 ${product.name} was restocked with ${restockAmount} units!`);
-              }
-          }
-      }
+    await maybeTriggerEvent(products);
+    await applyEvents(products);
+    await cleanupExpiredEvents();
 
-      await maybeTriggerEvent(products);
-      await applyEvents(products);
-      await cleanupExpiredEvents();
-
-      const updatedProducts = await Product.find();
-      io.emit('productsUpdated', updatedProducts);
+    const updatedProducts = await Product.find();
+    io.emit('productsUpdated', updatedProducts);
 
   } catch (err) {
-      console.error('❌ Simulation error:', err);
+    console.error('❌ Simulation error:', err);
   }
 }
 
@@ -74,13 +74,14 @@ async function maybeTriggerEvent(products) {
       type: 'global',
       effect: 'priceDrop',
       magnitude: 0.8,
-      durationMs: 1000 * 60 * 2, // 2 minutes
+      durationMs: 1000 * 60 * 2,
       startedAt: new Date(),
-      endedAt: null
+      endedAt: null,
+      affected: [] // store applied product IDs
     };
 
     activeEvents.push(event);
-    await Event.create(event); // Save to DB
+    await Event.create(event);
     console.log(`⚡ EVENT TRIGGERED: ${event.name}`);
   }
 }
@@ -88,10 +89,16 @@ async function maybeTriggerEvent(products) {
 async function applyEvents(products) {
   for (const event of activeEvents) {
     if (event.type === 'global' && event.effect === 'priceDrop') {
+      if (!event.affected) event.affected = [];
+
       for (const product of products) {
-        product.price = Math.round(product.price * event.magnitude);
-        await product.save();
-        console.log(`💥 EVENT EFFECT: ${product.name} discounted to €${product.price}`);
+        const productId = product._id.toString();
+        if (!event.affected.includes(productId)) {
+          product.price = Math.max(1, Math.round(product.price * event.magnitude));
+          await product.save();
+          event.affected.push(productId);
+          console.log(`💥 EVENT EFFECT: ${product.name} discounted to €${product.price}`);
+        }
       }
     }
   }
