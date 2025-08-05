@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let previousData = {};
 
   loadProducts();
+  loadEvents();
 
   const socket = io('http://localhost:5000');
   socket.on('connect', () => console.log('[WebSocket] ✅ Connected to server.'));
@@ -25,6 +26,62 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error('[LOAD] ❌ Failed to fetch products:', err);
     }
+  }
+
+  async function loadEvents() {
+    console.log('[LOAD] Fetching event data...');
+    try {
+      const [activeRes, historyRes] = await Promise.all([
+        fetch('http://localhost:5000/events/active'),
+        fetch('http://localhost:5000/events'),
+      ]);
+
+      const activeEvent = await activeRes.json();
+      const eventHistory = await historyRes.json();
+
+      renderActiveEvent(activeEvent);
+      renderEventHistory(eventHistory);
+    } catch (err) {
+      console.error('[LOAD] ❌ Failed to fetch events:', err);
+    }
+  }
+
+  function renderActiveEvent(event) {
+    const activeEl = document.getElementById('activeEvent');
+    if (!activeEl) {
+      console.warn('[RENDER] ❌ activeEvent element not found.');
+      return;
+    }
+    if (!event) {
+      activeEl.innerHTML = `<h3>Active Event</h3><p>No active event at the moment.</p>`;
+      return;
+    }
+
+    activeEl.innerHTML = `
+      <h3>Active Event</h3>
+      <p><strong>${event.name}</strong></p>
+      <p>Started: ${new Date(event.startedAt).toLocaleString()}</p>
+      <p>${event.description || 'No description available.'}</p>
+    `;
+  }
+
+  function renderEventHistory(events) {
+    const historyEl = document.getElementById('eventHistory');
+    if (!historyEl) {
+      console.warn('[RENDER] ❌ eventHistory element not found.');
+      return;
+    }
+
+    historyEl.innerHTML = `<h3>Event History</h3>`;
+    events.forEach(ev => {
+      const div = document.createElement('div');
+      div.classList.add('event-entry');
+      div.innerHTML = `
+        <p><strong>${ev.name}</strong> - ${new Date(ev.startedAt).toLocaleString()}</p>
+        <p>${ev.description || 'No description available.'}</p>
+      `;
+      historyEl.appendChild(div);
+    });
   }
 
   function renderProducts(products) {
@@ -91,38 +148,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateTopSellersChart(products) {
     console.log('[CHART] Updating chart...');
-  
+
     const topProducts = [...products]
       .sort((a, b) => b.salesCount - a.salesCount)
       .slice(0, 10);
-  
+
     const labels = topProducts.map(p => p.name);
     const sales = topProducts.map(p => p.salesCount);
-  
-    console.log('[CHART] Labels:', labels);
-    console.log('[CHART] Sales:', sales);
-  
+
     const canvas = document.getElementById('topSellersChart');
     if (!canvas) {
       console.error('[CHART] ❌ Canvas element not found.');
       return;
     }
-  
+
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       console.error('[CHART] ❌ Failed to get canvas context.');
       return;
     }
-  
+
     const ChartLib = Chart.Chart || Chart;
-  
+
     if (window.topSellersChart && window.topSellersChart.data && window.topSellersChart.data.datasets[0]) {
-      console.log('[CHART] Updating existing chart...');
       window.topSellersChart.data.labels = labels;
       window.topSellersChart.data.datasets[0].data = sales;
       window.topSellersChart.update();
     } else {
-      console.log('[CHART] Creating new chart...');
       window.topSellersChart = new ChartLib(ctx, {
         type: 'bar',
         data: {
@@ -140,8 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       });
-      console.log('[CHART] Chart created successfully');
     }
-    
   }
-});  
+});

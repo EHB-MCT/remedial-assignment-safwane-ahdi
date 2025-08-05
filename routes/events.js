@@ -7,4 +7,9 @@ router.get('/', async (req, res) => {
   res.json(events);
 });
 
+router.get('/active', async (req, res) => {
+    const activeEvent = await Event.findOne({ isActive: true }).sort({ startedAt: -1 });
+    res.json(activeEvent);
+  });
+
 module.exports = router;

@@ -33,7 +33,7 @@ mongoose.connect(process.env.MONGO_URI, {
   useUnifiedTopology: true,
 }).then(() => {
   console.log('🧠 MongoDB connected. Starting simulation...');
-  setInterval(() => runSimulationStep(io), 2000);
+  setInterval(() => runSimulationStep(io), 1000);
 }).catch((err) => {
   console.error('❌ MongoDB connection error:', err);
 });
