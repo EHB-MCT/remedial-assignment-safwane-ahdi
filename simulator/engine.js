@@ -105,15 +105,36 @@ async function maybeTriggerEvent(products) {
       durationMs: 1000 * 60 * 2,
       startedAt: now,
       endedAt: null,
-      affected: []
+      affected: [],
+      description: '' // <-- new field
     };
 
     if (typePicked === 'Flash Sale') {
-      event = { ...event, name: 'Flash Sale', type: 'global', effect: 'priceDrop', magnitude: 0.8 };
+      event = {
+        ...event,
+        name: 'Flash Sale',
+        type: 'global',
+        effect: 'priceDrop',
+        magnitude: 0.8,
+        description: 'A sudden discount across all products. Prices drop by 20%.'
+      };
     } else if (typePicked === 'Price Surge') {
-      event = { ...event, name: 'Price Surge', type: 'global', effect: 'priceIncrease', magnitude: 1.2 };
+      event = {
+        ...event,
+        name: 'Price Surge',
+        type: 'global',
+        effect: 'priceIncrease',
+        magnitude: 1.2,
+        description: 'Market demand is high! Prices increase by 20%.'
+      };
     } else if (typePicked === 'Supply Chain Disruption') {
-      event = { ...event, name: 'Supply Chain Disruption', type: 'global', effect: 'restrictStock' };
+      event = {
+        ...event,
+        name: 'Supply Chain Disruption',
+        type: 'global',
+        effect: 'restrictStock',
+        description: 'Restocking is temporarily halted due to logistics issues.'
+      };
     } else if (typePicked === 'Hype Wave') {
       const randomProduct = products[Math.floor(Math.random() * products.length)];
       event = {
@@ -121,7 +142,8 @@ async function maybeTriggerEvent(products) {
         name: 'Hype Wave',
         type: 'product',
         effect: 'boostDemand',
-        productId: randomProduct._id
+        productId: randomProduct._id,
+        description: `Sudden hype around ${randomProduct.name}. It will sell much faster.`
       };
     }
 
@@ -130,6 +152,7 @@ async function maybeTriggerEvent(products) {
     console.log(`⚡ EVENT TRIGGERED: ${event.name}`);
   }
 }
+
 
 
 async function applyEvents(products) {
