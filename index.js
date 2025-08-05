@@ -5,7 +5,10 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(express.json());
 const productRoutes = require('./routes/products');
+const eventRoutes = require('./routes/events');
+app.use('/events', eventRoutes);
 app.use('/products', productRoutes);
+
 
 // MongoDB Connect
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
