@@ -5,6 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 const mongoose = require('mongoose');
 const productRoutes = require('./routes/products');
+const eventRoutes = require('./routes/events');
 const runSimulationStep = require('./simulator/engine'); // this now takes io
 
 const app = express();
@@ -20,6 +21,7 @@ const io = socketIO(server, {
 app.use(cors());
 app.use(express.json());
 app.use('/products', productRoutes);
+app.use('/events', eventRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
