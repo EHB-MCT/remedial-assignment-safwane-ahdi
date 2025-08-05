@@ -24,22 +24,32 @@
       <header>
         <h1>Product Overview</h1>
       </header>
-
+    
       <section id="summary" class="dashboard-summary">
-        <p id="totalValue"></p>
-        <p id="topSeller"></p>
-        <p id="outOfStockCount"></p>
+        <div class="summary-item" id="totalValue"></div>
+        <div class="summary-item" id="topSeller"></div>
+        <div class="summary-item" id="outOfStockCount"></div>
       </section>
-
+    
       <section id="events-section">
+        <h2>Events</h2>
         <div id="activeEvent" class="event-box"></div>
         <div id="eventHistory" class="event-history"></div>
       </section>
-      
-
-      <canvas id="topSellersChart" width="1000" height="300"></canvas>
-
+    
+      <section id="charts">
+        <div class="chart-container">
+          <h3>Top Sellers</h3>
+          <canvas id="topSellersChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <h3>Stock Distribution</h3>
+          <canvas id="stockDistributionChart"></canvas>
+        </div>
+      </section>
+    
       <section id="product-list">
+        <h2>Product List</h2>
         <table>
           <thead>
             <tr>
@@ -50,12 +60,11 @@
               <th>Last Sold</th>
             </tr>
           </thead>
-          <tbody id="product-body">
-
-          </tbody>
+          <tbody id="product-body"></tbody>
         </table>
       </section>
     </main>
+    
   </div>
 </body>
 

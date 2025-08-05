@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateTopSellersChart(products);
+renderStockDistributionChart(products);
   }
 
   function updateTopSellersChart(products) {
@@ -194,4 +195,59 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   }
+
+  let stockDistributionChart;
+
+function renderStockDistributionChart(products) {
+  const stockByType = {};
+
+  products.forEach(product => {
+    if (!stockByType[product.type]) {
+      stockByType[product.type] = 0;
+    }
+    stockByType[product.type] += product.stock;
+  });
+
+  const labels = Object.keys(stockByType);
+  const data = Object.values(stockByType);
+
+  const ctx = document.getElementById('stockDistributionChart').getContext('2d');
+
+  if (stockDistributionChart) {
+    stockDistributionChart.destroy();
+  }
+
+  stockDistributionChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Stock by Product Type',
+        data: data,
+        backgroundColor: [
+          '#4e79a7',
+          '#f28e2b',
+          '#e15759',
+          '#76b7b2',
+          '#59a14f',
+          '#edc949',
+          '#af7aa1',
+          '#ff9da7'
+        ]
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'right'
+        },
+        title: {
+          display: true,
+          text: 'Stock Distribution by Product Type'
+        }
+      }
+    }
+  });
+}
 });
