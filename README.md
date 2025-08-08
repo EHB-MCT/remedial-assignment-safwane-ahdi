@@ -8,6 +8,8 @@ This Node.js project simulates a dynamic PC component marketplace. Products like
 
 It also features seed scripts for testing, JSON-based data loading, and mock economic behaviors like purchase surges and stock depletion.
 
+![Screenshot Description](assets/screenshot.png)
+
 ## Key features:
 - Demand-based price fluctuations
 - Event-driven demand spikes (like hype waves)
