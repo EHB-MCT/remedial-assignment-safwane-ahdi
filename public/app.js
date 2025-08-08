@@ -184,17 +184,50 @@ document.addEventListener('DOMContentLoaded', () => {
           datasets: [{
             label: 'Sales Count',
             data: sales,
-            backgroundColor: 'rgba(54, 162, 235, 0.7)'
+            backgroundColor: '#00ffff', // bright cyan
+            borderColor: '#00ffff',
+            borderWidth: 1
           }]
         },
         options: {
           responsive: true,
+          animation: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#111',
+              titleColor: '#ffff00',
+              bodyColor: '#ffffff',
+              borderColor: '#00ffff',
+              borderWidth: 1
+            }
+          },
           scales: {
-            y: { beginAtZero: true }
+            x: {
+              ticks: {
+                color: '#ffffff'
+              },
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#ffffff'
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.05)'
+              }
+            }
           }
         }
       });
+      
     }
+    
   }
 
   let stockDistributionChart;
@@ -226,30 +259,33 @@ document.addEventListener('DOMContentLoaded', () => {
           label: 'Stock by Product Type',
           data: data,
           backgroundColor: [
-            '#4e79a7',
-            '#f28e2b',
-            '#e15759',
-            '#76b7b2',
-            '#59a14f',
-            '#edc949',
-            '#af7aa1',
-            '#ff9da7'
-          ]
+            '#00ffff', '#ffff00', '#ff00ff', '#00ff88',
+            '#ffaa00', '#ff0044'
+          ],
+          borderColor: '#111',
+          borderWidth: 2
         }]
       },
       options: {
         responsive: true,
+        animation: false,
         plugins: {
           legend: {
-            position: 'right'
+            position: 'right',
+            labels: {
+              color: '#ffffff'
+            }
           },
-          title: {
-            display: true,
-            text: 'Stock Distribution by Product Type'
+          tooltip: {
+            backgroundColor: '#111',
+            titleColor: '#ffff00',
+            bodyColor: '#ffffff',
+            borderColor: '#00ffff',
+            borderWidth: 1
           }
         }
       }
-    });
+    });    
   }
 
   let stockTimelineChart;
@@ -286,24 +322,61 @@ document.addEventListener('DOMContentLoaded', () => {
             label: 'Total Stock Over Time',
             data: stockTimelineData.data,
             fill: false,
-            borderColor: '#4e79a7',
+            borderColor: '#00ffff',
+            pointBackgroundColor: '#ffff00',
+            pointRadius: 3,
             tension: 0.3
           }]
         },
         options: {
           responsive: true,
+          animation: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#111',
+              titleColor: '#ffff00',
+              bodyColor: '#ffffff',
+              borderColor: '#00ffff',
+              borderWidth: 1
+            }
+          },
           scales: {
             x: {
-              title: { display: true, text: 'Time' }
+              title: {
+                display: true,
+                text: 'Time',
+                color: '#ffff00'
+              },
+              ticks: {
+                color: '#ffffff'
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.05)'
+              }
             },
             y: {
               beginAtZero: true,
-              title: { display: true, text: 'Total Stock Units' }
+              title: {
+                display: true,
+                text: 'Total Stock Units',
+                color: '#ffff00'
+              },
+              ticks: {
+                color: '#ffffff'
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.05)'
+              }
             }
           }
         }
       });
+      
     }
+    
   }
 
 });

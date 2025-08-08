@@ -1,17 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <title>Product Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script>
-    console.log('[DEBUG] Chart is:', typeof Chart);
-  </script>
   <script src="app.js"></script>
-
 </head>
 
 <body>
@@ -24,19 +21,20 @@
       <header>
         <h1>Product Overview</h1>
       </header>
-    
+
+      <!-- Key Metrics -->
       <section id="summary" class="dashboard-summary">
         <div class="summary-item" id="totalValue"></div>
         <div class="summary-item" id="topSeller"></div>
         <div class="summary-item" id="outOfStockCount"></div>
       </section>
-    
-      <section id="events-section">
-        <h2>Events</h2>
+
+      <!-- Active Event -->
+      <section id="activeEventSection">
         <div id="activeEvent" class="event-box"></div>
-        <div id="eventHistory" class="event-history"></div>
       </section>
-    
+
+      <!-- Charts -->
       <section id="charts">
         <div class="chart-container">
           <h3>Top Sellers</h3>
@@ -51,7 +49,8 @@
           <canvas id="stockTimelineChart"></canvas>
         </div>
       </section>
-    
+
+      <!-- Product List -->
       <section id="product-list">
         <h2>Product List</h2>
         <table>
@@ -67,9 +66,13 @@
           <tbody id="product-body"></tbody>
         </table>
       </section>
+
+      <!-- Event History -->
+      <section id="eventHistorySection">
+        <h2>Event History</h2>
+        <div id="eventHistory" class="event-history"></div>
+      </section>
     </main>
-    
   </div>
 </body>
-
 </html>
