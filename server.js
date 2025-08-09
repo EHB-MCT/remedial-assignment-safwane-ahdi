@@ -9,8 +9,8 @@ const cors = require('cors');
 const productRoutes = require('./routes/products');
 const eventRoutes = require('./routes/events');
 const runSimulationStep = require('./simulator/engine'); // function accepts io
+const { refreshFromPcpp } = require('./jobs/refreshFromPcpp');
 
-// Express app
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -23,28 +23,43 @@ app.get('/', (req, res) => {
   res.send('PC Market Simulator API is running');
 });
 
-// Create HTTP server and bind socket.io
 const server = http.createServer(app);
 const io = socketIO(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+  cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-// Connect to MongoDB and start simulation
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-}).then(() => {
-  console.log('🧠 MongoDB connected. Starting simulation...');
+}).then(async () => {
+  console.log('MongoDB connected. Starting simulation...');
+
+  // Seed/refresh once at boot
+  try {
+    const n = await refreshFromPcpp();
+    console.log(`PCPP refresh complete. Upserted/updated: ${n}`);
+  } catch (e) {
+    console.error('Initial PCPP refresh failed:', e.message);
+  }
+
+  // Keep it fresh every 30 minutes (tune via env)
+  const minutes = Number(process.env.PCPP_REFRESH_MINUTES || 30);
+  setInterval(async () => {
+    try {
+      const n = await refreshFromPcpp();
+      console.log(`PCPP refresh complete. Upserted/updated: ${n}`);
+    } catch (e) {
+      console.error('Scheduled PCPP refresh failed:', e.message);
+    }
+  }, minutes * 60 * 1000);
+
+  // Start your simulation tick
   setInterval(() => runSimulationStep(io), 1000);
 }).catch((err) => {
-  console.error('❌ MongoDB connection error:', err);
+  console.error('MongoDB connection error:', err);
 });
 
-// Start the server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

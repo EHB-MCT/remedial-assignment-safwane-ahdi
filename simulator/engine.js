@@ -1,15 +1,11 @@
 const Product = require('../models/Product');
 const Event = require('../models/Event');
+const ProductHistory = require('../models/ProductHistory');
 const activeEvents = [];
 
 async function runSimulationStep(io) {
   try {
     const products = await Product.find();
-
-    if (products.length === 0) {
-      console.log('No products to simulate.');
-      return;
-    }
     if (products.length === 0) {
       console.log('No products to simulate.');
       return;
@@ -33,7 +29,7 @@ async function runSimulationStep(io) {
     if (randomProduct.stock > 0) {
       randomProduct.stock -= 1;
       randomProduct.salesCount += 1;
-      randomProduct.lastSoldAt = new Date();
+      randomProduct.lastSoldAt = now;
 
       if (randomProduct.salesCount % 5 === 0) {
         randomProduct.price = Math.round(randomProduct.price * 1.1);
@@ -41,6 +37,8 @@ async function runSimulationStep(io) {
       }
 
       await randomProduct.save();
+      await logProductHistory(randomProduct);
+
       console.log(`💸 Simulated purchase: ${randomProduct.name} | New stock: ${randomProduct.stock} | Price: €${randomProduct.price}`);
     } else {
       console.log(`${randomProduct.name} is out of stock.`);
@@ -54,6 +52,7 @@ async function runSimulationStep(io) {
         product.price = Math.max(1, Math.round(product.price * 0.9));
         product.lastSoldAt = null;
         await product.save();
+        await logProductHistory(product);
         console.log(`📉 ${product.name} is cold. Price dropped to €${product.price}`);
       }
     }
@@ -66,6 +65,7 @@ async function runSimulationStep(io) {
           const restockAmount = Math.floor(Math.random() * 3) + 3;
           product.stock += restockAmount;
           await product.save();
+          await logProductHistory(product); // ✅ LOG HISTORY
           console.log(`📦 ${product.name} was restocked with ${restockAmount} units!`);
         }
       }
@@ -80,6 +80,21 @@ async function runSimulationStep(io) {
 
   } catch (err) {
     console.error('❌ Simulation error:', err);
+  }
+}
+
+async function logProductHistory(product) {
+  try {
+    await ProductHistory.create({
+      productId: product._id,
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      salesCount: product.salesCount,
+      timestamp: new Date()
+    });
+  } catch (err) {
+    console.error('[HISTORY] Failed to log history:', err);
   }
 }
 
