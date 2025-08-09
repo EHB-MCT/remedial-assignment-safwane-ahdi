@@ -77,6 +77,8 @@ It also features seed scripts for testing, JSON-based data loading, and mock eco
 - [x] Demand-based pricing
 - [x] Hype wave events
 - [x] WebSocket updates
+- [] Product price history
+- [] PC parts Rest API
 
 ## Contributing
 

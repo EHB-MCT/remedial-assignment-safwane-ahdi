@@ -153,3 +153,10 @@ th {
   font-weight: bold;
   box-shadow: 0 0 10px #ff0033;
 }
+
+#lists {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+  justify-content: space-between;
+}
