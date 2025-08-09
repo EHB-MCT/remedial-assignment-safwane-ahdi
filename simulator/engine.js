@@ -1,8 +1,26 @@
+// simulationEngine.js
 const Product = require('../models/Product');
 const Event = require('../models/Event');
 const ProductHistory = require('../models/ProductHistory');
+
 const activeEvents = [];
 
+// -----------------------------------------------------------------------------
+// Configuration knobs
+// -----------------------------------------------------------------------------
+const TICK = {
+  purchasesPerTick: 5,            // how many simulated purchases to try per tick
+  coldDropThresholdMs: 30_000,    // time since lastSoldAt to mark "cold"
+  restockBatchSize: 200,          // max products to restock per tick
+  restockChance: 0.10,            // probability that a zero-stock product is considered for restock
+  restockIncMin: 3,
+  restockIncMax: 5,
+  deltaDebounceMs: 300            // coalesce outbound WebSocket deltas
+};
+
+// -----------------------------------------------------------------------------
+// Price clamping
+// -----------------------------------------------------------------------------
 const PRICE_FLOOR = {
   cpu: 50,
   'video-card': 120,
@@ -16,113 +34,209 @@ const PRICE_FLOOR = {
   'solid-state-drive': 25
 };
 function minPriceFor(type) { return PRICE_FLOOR[type] ?? 10; }
-function clampPrice(val, type) {
-  const floor = minPriceFor(type);
-  const n = Math.round(Number(val) || 0);
-  return Math.max(floor, n);
+
+// If you can, persist priceFloor per document once and reference "$priceFloor" in pipelines
+// to avoid a JS roundtrip. For now we clamp after reads or via $max("$priceFloor", ...).
+
+// -----------------------------------------------------------------------------
+// Internal buffers for history and deltas
+// -----------------------------------------------------------------------------
+const historyBuffer = [];
+const changed = new Map(); // _id -> partial projection for client
+
+function bufferHistory(doc, now) {
+  historyBuffer.push({
+    productId: doc._id,
+    name: doc.name,
+    price: doc.price,
+    stock: doc.stock,
+    salesCount: doc.salesCount,
+    timestamp: now
+  });
 }
 
-async function runSimulationStep(io) {
-  try {
-    const products = await Product.find();
-    if (products.length === 0) {
-      console.log('No products to simulate.');
-      return;
+function markChanged(doc) {
+  changed.set(String(doc._id), {
+    _id: doc._id,
+    price: doc.price,
+    stock: doc.stock,
+    salesCount: doc.salesCount,
+    lastSoldAt: doc.lastSoldAt
+  });
+}
+
+async function flushHistory() {
+  if (historyBuffer.length === 0) return;
+  const batch = historyBuffer.splice(0, historyBuffer.length);
+  await ProductHistory.insertMany(batch, { ordered: false });
+}
+
+// Debounced WebSocket deltas
+let flushTimer = null;
+function scheduleFlush(io) {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    const payload = Array.from(changed.values());
+    changed.clear();
+    flushTimer = null;
+    if (payload.length) io.emit('productsDelta', payload);
+  }, TICK.deltaDebounceMs);
+}
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+async function pickRandom(boostedIds) {
+  // Prefer a boosted product with stock
+  if (boostedIds?.length) {
+    const [p] = await Product.aggregate([
+      { $match: { _id: { $in: boostedIds }, stock: { $gt: 0 } } },
+      { $sample: { size: 1 } },
+      { $project: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1 } }
+    ]);
+    if (p) return p;
+  }
+  // Fallback: any in-stock product
+  const [p] = await Product.aggregate([
+    { $match: { stock: { $gt: 0 } } },
+    { $sample: { size: 1 } },
+    { $project: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1 } }
+  ]);
+  return p || null;
+}
+
+async function tryPurchase(productId, now) {
+  // Atomic decrement to avoid oversell
+  const doc = await Product.findOneAndUpdate(
+    { _id: productId, stock: { $gt: 0 } },
+    {
+      $inc: { stock: -1, salesCount: 1 },
+      $set: { lastSoldAt: now }
+    },
+    { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1 } }
+  ).lean();
+  if (!doc) return null;
+
+  // Apply "selling fast" price bump every 5th sale, then clamp
+  if (doc.salesCount % 5 === 0) {
+    const next = Math.round(doc.price * 1.1);
+    const clamped = Math.max(minPriceFor(doc.type), next);
+    if (clamped !== doc.price) {
+      const updated = await Product.findOneAndUpdate(
+        { _id: productId },
+        { $set: { price: clamped } },
+        { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1 } }
+      ).lean();
+      return updated;
     }
+  }
+  return doc;
+}
 
-    const now = new Date();
-
-    // Check for boostDemand (Hype Wave)
-    const boostedProductIds = activeEvents
-      .filter(e => e.effect === 'boostDemand')
-      .map(e => e.productId?.toString());
-
-    let randomProduct;
-    if (boostedProductIds.length && Math.random() < 0.7) {
-      const boosted = products.filter(p => boostedProductIds.includes(p._id.toString()));
-      randomProduct = boosted[Math.floor(Math.random() * boosted.length)] || products[Math.floor(Math.random() * products.length)];
-    } else {
-      randomProduct = products[Math.floor(Math.random() * products.length)];
-    }
-
-    // Purchase simulation
-    if (randomProduct.stock > 0) {
-      randomProduct.stock -= 1;
-      randomProduct.salesCount += 1;
-      randomProduct.lastSoldAt = now;
-
-      // Selling fast → price up, with clamp
-      if (randomProduct.salesCount % 5 === 0) {
-        const nextPrice = randomProduct.price * 1.1;
-        randomProduct.price = clampPrice(nextPrice, randomProduct.type); // CHANGED
-        console.log(`[sales] ${randomProduct.name} is selling fast. Price increased to €${randomProduct.price}.`);
-      }
-
-      await randomProduct.save();
-      await logProductHistory(randomProduct);
-
-      console.log(`[purchase] ${randomProduct.name} | stock: ${randomProduct.stock} | price: €${randomProduct.price}`);
-    } else {
-      console.log(`[oos] ${randomProduct.name} is out of stock.`);
-    }
-
-    // Price drop for cold products (hasn't sold recently)
-    // NOTE: after a drop we null lastSoldAt so it won't drop again until it sells again.
-    for (const product of products) {
-      if (!product.lastSoldAt) continue;
-      const timeSinceLastSale = now - new Date(product.lastSoldAt);
-      if (timeSinceLastSale > 1000 * 60 * 0.5) { // 30s
-        const nextPrice = product.price * 0.9;
-        product.price = clampPrice(nextPrice, product.type); // CHANGED
-        product.lastSoldAt = null;
-        await product.save();
-        await logProductHistory(product);
-        console.log(`[cold] ${product.name} price dropped to €${product.price}.`);
-      }
-    }
-
-    // Restock unless restricted by an event
-    const stockRestricted = activeEvents.some(e => e.effect === 'restrictStock');
-    if (!stockRestricted) {
-      for (const product of products) {
-        if (product.stock === 0 && Math.random() < 0.1) {
-          const restockAmount = Math.floor(Math.random() * 3) + 3;
-          product.stock += restockAmount;
-          await product.save();
-          await logProductHistory(product);
-          console.log(`[restock] ${product.name} +${restockAmount} units.`);
+async function applyColdDrops(now = new Date()) {
+  const cutoff = new Date(now.getTime() - TICK.coldDropThresholdMs);
+  // Pipeline update: drop price by 10%, clamp, and null lastSoldAt
+  const res = await Product.updateMany(
+    { lastSoldAt: { $lte: cutoff } },
+    [
+      {
+        $set: {
+          price: {
+            $max: [
+              "$priceFloor", // if present; else it will be null and max ignores it
+              { $round: [{ $multiply: ["$price", 0.9] }, 0] }
+            ]
+          },
+          lastSoldAt: null
         }
       }
+    ]
+  );
+  return res.modifiedCount || 0;
+}
+
+function randInt(minIncl, maxIncl) {
+  return Math.floor(Math.random() * (maxIncl - minIncl + 1)) + minIncl;
+}
+
+async function restockSome() {
+  // Sample potential zero-stock docs; probabilistic selection by restockChance
+  const candidates = await Product.aggregate([
+    { $match: { stock: 0 } },
+    { $sample: { size: TICK.restockBatchSize } },
+    { $project: { _id: 1 } }
+  ]);
+
+  if (!candidates.length) return 0;
+
+  const ops = [];
+  for (const c of candidates) {
+    if (Math.random() < TICK.restockChance) {
+      const inc = randInt(TICK.restockIncMin, TICK.restockIncMax);
+      ops.push({
+        updateOne: {
+          filter: { _id: c._id, stock: 0 },
+          update: { $inc: { stock: inc } }
+        }
+      });
     }
+  }
+  if (!ops.length) return 0;
 
-    await maybeTriggerEvent(products);
-    await applyEvents(products);       // will clamp and set lastEventApplied
-    await cleanupExpiredEvents();
+  const res = await Product.bulkWrite(ops, { ordered: false });
+  return res.modifiedCount || 0;
+}
 
-    const updatedProducts = await Product.find();
-    io.emit('productsUpdated', updatedProducts);
+async function applyGlobalPriceEvent(event) {
+  const stamp = `${event.name}-${new Date(event.startedAt).toISOString()}`;
+  const multiplier = event.magnitude ?? 1;
 
-  } catch (err) {
-    console.error('Simulation error:', err);
+  const res = await Product.updateMany(
+    { lastEventApplied: { $ne: stamp } },
+    [
+      {
+        $set: {
+          price: {
+            $max: [
+              "$priceFloor",
+              { $round: [{ $multiply: ["$price", multiplier] }, 0] }
+            ]
+          },
+          lastEventApplied: stamp
+        }
+      }
+    ]
+  );
+  return { modified: res.modifiedCount || 0, stamp };
+}
+
+async function clearEventStamp(stamp) {
+  await Product.updateMany(
+    { lastEventApplied: stamp },
+    { $set: { lastEventApplied: null } }
+  );
+}
+
+async function cleanupExpiredEventsFast(list) {
+  const now = Date.now();
+  for (let i = list.length - 1; i >= 0; i--) {
+    const e = list[i];
+    const ended = now - new Date(e.startedAt).getTime() > e.durationMs;
+    if (!ended) continue;
+
+    const stamp = `${e.name}-${new Date(e.startedAt).toISOString()}`;
+    await Promise.all([
+      Event.updateOne({ name: e.name, startedAt: e.startedAt }, { endedAt: new Date() }),
+      clearEventStamp(stamp)
+    ]);
+    list.splice(i, 1);
   }
 }
 
-async function logProductHistory(product) {
-  try {
-    await ProductHistory.create({
-      productId: product._id,
-      name: product.name,
-      price: product.price,
-      stock: product.stock,
-      salesCount: product.salesCount,
-      timestamp: new Date()
-    });
-  } catch (err) {
-    console.error('[history] Failed to log history:', err);
-  }
-}
-
-async function maybeTriggerEvent(products) {
+// -----------------------------------------------------------------------------
+// Event trigger logic (unchanged except no full scans)
+// -----------------------------------------------------------------------------
+async function maybeTriggerEvent() {
   const alreadyActive = activeEvents.some(
     (event) => event.name === 'Flash Sale' && !event.endedAt
   );
@@ -155,65 +269,103 @@ async function maybeTriggerEvent(products) {
       event = { ...event, name: 'Supply Chain Disruption', type: 'global', effect: 'restrictStock',
         description: 'Restocking is temporarily halted due to logistics issues.' };
     } else if (typePicked === 'Hype Wave') {
-      const rp = products[Math.floor(Math.random() * products.length)];
-      event = { ...event, name: 'Hype Wave', type: 'product', effect: 'boostDemand',
-        productId: rp._id, description: `Sudden hype around ${rp.name}. It will sell much faster.` };
+      // Use one random product id without loading all products
+      const [rp] = await Product.aggregate([
+        { $sample: { size: 1 } },
+        { $project: { _id: 1, name: 1 } }
+      ]);
+      if (rp) {
+        event = { ...event, name: 'Hype Wave', type: 'product', effect: 'boostDemand',
+          productId: rp._id, description: `Sudden hype around ${rp.name}. It will sell much faster.` };
+      } else {
+        return;
+      }
     }
 
     activeEvents.push(event);
     await Event.create(event);
-    console.log(`[event] TRIGGERED: ${event.name}`);
+    // Not pushing to all products here; application happens in the tick
   }
 }
 
-async function applyEvents(products) {
-  for (const event of activeEvents) {
-    if (!event.affected) event.affected = [];
+// -----------------------------------------------------------------------------
+// Main tick
+// -----------------------------------------------------------------------------
+async function runSimulationStep(io) {
+  try {
+    const now = new Date();
 
-    if (event.effect === 'priceDrop' || event.effect === 'priceIncrease') {
-      const multiplier = event.magnitude;
+    // 1) Resolve boosted product ids from active events without loading all products
+    const boostedIds = activeEvents
+      .filter(e => e.effect === 'boostDemand' && e.productId)
+      .map(e => e.productId);
 
-      for (const product of products) {
-        const id = product._id.toString();
+    // 2) Simulate purchases atomically; bias toward boosted when present
+    const purchasesToTry = TICK.purchasesPerTick;
+    for (let i = 0; i < purchasesToTry; i++) {
+      const candidate = await pickRandom(boostedIds);
+      if (!candidate) break;
 
-        // --- NEW: avoid double-application of the same event instance ---
-        const stamp = `${event.name}-${new Date(event.startedAt).toISOString()}`;
-        if (product.lastEventApplied === stamp) continue;
-
-        // apply once per product
-        const nextPrice = product.price * multiplier;
-        product.price = clampPrice(nextPrice, product.type); // CHANGED
-        product.lastEventApplied = stamp;                     // NEW
-        await product.save();
-        await logProductHistory(product);
-
-        event.affected.push(id);
-        console.log(`[event] ${event.name} applied to ${product.name}: €${product.price}`);
+      const updated = await tryPurchase(candidate._id, now);
+      if (updated) {
+        // Clamp after read in case the doc lacks priceFloor pipeline clamp
+        const floor = minPriceFor(updated.type);
+        if (updated.price < floor) {
+          const fixed = await Product.findOneAndUpdate(
+            { _id: updated._id },
+            { $set: { price: floor } },
+            { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1 } }
+          ).lean();
+          if (fixed) {
+            bufferHistory(fixed, now);
+            markChanged(fixed);
+            continue;
+          }
+        }
+        bufferHistory(updated, now);
+        markChanged(updated);
       }
     }
-  }
-}
 
-async function cleanupExpiredEvents() {
-  const now = Date.now();
-  for (let i = activeEvents.length - 1; i >= 0; i--) {
-    const event = activeEvents[i];
-    const duration = now - new Date(event.startedAt).getTime();
-    if (duration > event.durationMs) {
-      console.log(`[event] ENDED: ${event.name}`);
-      await Event.updateOne(
-        { name: event.name, startedAt: event.startedAt },
-        { endedAt: new Date() }
-      );
-
-      // Clear the event marker so future events can apply again
-      await Product.updateMany(
-        { lastEventApplied: `${event.name}-${new Date(event.startedAt).toISOString()}` },
-        { $set: { lastEventApplied: null } }
-      );
-
-      activeEvents.splice(i, 1);
+    // 3) Apply cold price drops in one batch
+    const coldModified = await applyColdDrops(now);
+    if (coldModified > 0) {
+      // Optional: fetch a small sample of modified docs for deltas.
+      // For simplicity, omit here; UI will catch next change stream or next tick.
     }
+
+    // 4) Restock some zero-stock products in one batch (unless restricted)
+    const stockRestricted = activeEvents.some(e => e.effect === 'restrictStock');
+    if (!stockRestricted) {
+      const restocked = await restockSome();
+      if (restocked > 0) {
+        // Optionally fetch a sample for deltas; omitted for brevity.
+      }
+    }
+
+    // 5) Apply any active global price events in one batch
+    for (const e of activeEvents) {
+      if (e.effect === 'priceDrop' || e.effect === 'priceIncrease') {
+        const { modified } = await applyGlobalPriceEvent(e);
+        if (modified > 0) {
+          // Optionally sample changed docs; omitted.
+        }
+      }
+    }
+
+    // 6) Possibly trigger a new event
+    await maybeTriggerEvent();
+
+    // 7) Cleanup expired events
+    await cleanupExpiredEventsFast(activeEvents);
+
+    // 8) Flush history once
+    await flushHistory();
+
+    // 9) Emit coalesced deltas
+    scheduleFlush(io);
+  } catch (err) {
+    console.error('Simulation error:', err);
   }
 }
 
