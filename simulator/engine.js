@@ -1,4 +1,3 @@
-// simulationEngine.js
 const Product = require('../models/Product');
 const Event = require('../models/Event');
 const ProductHistory = require('../models/ProductHistory');
@@ -11,7 +10,7 @@ const activeEvents = [];
 const TICK = {
   purchasesPerTick: 5,            // how many simulated purchases to try per tick
   coldDropThresholdMs: 30_000,    // time since lastSoldAt to mark "cold"
-  restockBatchSize: 200,          // max products to restock per tick
+  restockBatchSize: 200,          // max products to restock sample per tick
   restockChance: 0.10,            // probability that a zero-stock product is considered for restock
   restockIncMin: 3,
   restockIncMax: 5,
@@ -19,24 +18,27 @@ const TICK = {
 };
 
 // -----------------------------------------------------------------------------
-// Price clamping
+// Price/stock bounds
 // -----------------------------------------------------------------------------
-const PRICE_FLOOR = {
-  cpu: 50,
-  'video-card': 120,
-  motherboard: 40,
-  memory: 12,
-  'power-supply': 25,
-  'cpu-cooler': 10,
-  case: 20,
-  'case-fan': 5,
-  'internal-hard-drive': 20,
-  'solid-state-drive': 25
+const PRICE_CEILING = {
+  cpu: 1200,
+  'video-card': 2500,
+  motherboard: 600,
+  memory: 400,
+  'power-supply': 400,
+  'cpu-cooler': 250,
+  case: 400,
+  'case-fan': 80,
+  'internal-hard-drive': 500,
+  'solid-state-drive': 700
 };
-function minPriceFor(type) { return PRICE_FLOOR[type] ?? 10; }
+function maxPriceFor(type) { return PRICE_CEILING[type] ?? 10_000; }
 
-// If you can, persist priceFloor per document once and reference "$priceFloor" in pipelines
-// to avoid a JS roundtrip. For now we clamp after reads or via $max("$priceFloor", ...).
+const MAX_STOCK = {
+  cpu: 30, 'video-card': 40, motherboard: 60, memory: 120, 'power-supply': 80,
+  'cpu-cooler': 120, case: 60, 'case-fan': 400, 'internal-hard-drive': 120, 'solid-state-drive': 200
+};
+function maxStockFor(type) { return MAX_STOCK[type] ?? 100; }
 
 // -----------------------------------------------------------------------------
 // Internal buffers for history and deltas
@@ -106,26 +108,25 @@ async function pickRandom(boostedIds) {
 }
 
 async function tryPurchase(productId, now) {
-  // Atomic decrement to avoid oversell
+  // Atomic decrement to avoid oversell; include priceFloor for clamping logic
   const doc = await Product.findOneAndUpdate(
     { _id: productId, stock: { $gt: 0 } },
-    {
-      $inc: { stock: -1, salesCount: 1 },
-      $set: { lastSoldAt: now }
-    },
-    { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1 } }
+    { $inc: { stock: -1, salesCount: 1 }, $set: { lastSoldAt: now } },
+    { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1, priceFloor: 1 } }
   ).lean();
   if (!doc) return null;
 
-  // Apply "selling fast" price bump every 5th sale, then clamp
+  // Every 5th sale → +10%, then clamp to [priceFloor, type ceiling]
   if (doc.salesCount % 5 === 0) {
     const next = Math.round(doc.price * 1.1);
-    const clamped = Math.max(minPriceFor(doc.type), next);
+    const floor = typeof doc.priceFloor === 'number' ? doc.priceFloor : 10;
+    const clamped = Math.min(maxPriceFor(doc.type), Math.max(floor, next));
+
     if (clamped !== doc.price) {
       const updated = await Product.findOneAndUpdate(
         { _id: productId },
         { $set: { price: clamped } },
-        { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1 } }
+        { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1, priceFloor: 1 } }
       ).lean();
       return updated;
     }
@@ -135,16 +136,36 @@ async function tryPurchase(productId, now) {
 
 async function applyColdDrops(now = new Date()) {
   const cutoff = new Date(now.getTime() - TICK.coldDropThresholdMs);
-  // Pipeline update: drop price by 10%, clamp, and null lastSoldAt
   const res = await Product.updateMany(
-    { lastSoldAt: { $lte: cutoff } },
+    { lastSoldAt: { $ne: null, $lte: cutoff } }, // exclude nulls so we don't keep re-dropping
     [
       {
         $set: {
           price: {
-            $max: [
-              "$priceFloor", // if present; else it will be null and max ignores it
-              { $round: [{ $multiply: ["$price", 0.9] }, 0] }
+            $min: [
+              {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ["$type", "cpu"] }, then: 1200 },
+                    { case: { $eq: ["$type", "video-card"] }, then: 2500 },
+                    { case: { $eq: ["$type", "motherboard"] }, then: 600 },
+                    { case: { $eq: ["$type", "memory"] }, then: 400 },
+                    { case: { $eq: ["$type", "power-supply"] }, then: 400 },
+                    { case: { $eq: ["$type", "cpu-cooler"] }, then: 250 },
+                    { case: { $eq: ["$type", "case"] }, then: 400 },
+                    { case: { $eq: ["$type", "case-fan"] }, then: 80 },
+                    { case: { $eq: ["$type", "internal-hard-drive"] }, then: 500 },
+                    { case: { $eq: ["$type", "solid-state-drive"] }, then: 700 }
+                  ],
+                  default: 10000
+                }
+              },
+              {
+                $max: [
+                  "$priceFloor",
+                  { $round: [{ $multiply: ["$price", 0.9] }, 0] }
+                ]
+              }
             ]
           },
           lastSoldAt: null
@@ -159,37 +180,47 @@ function randInt(minIncl, maxIncl) {
   return Math.floor(Math.random() * (maxIncl - minIncl + 1)) + minIncl;
 }
 
-async function restockSome() {
-  // Sample potential zero-stock docs; probabilistic selection by restockChance
+// Single, parameterized restock function
+async function restockSome(limit = 0) {
+  if (limit <= 0) return 0;
+
   const candidates = await Product.aggregate([
     { $match: { stock: 0 } },
-    { $sample: { size: TICK.restockBatchSize } },
-    { $project: { _id: 1 } }
+    { $sample: { size: Math.min(TICK.restockBatchSize, limit * 2) } }, // small headroom
+    { $project: { _id: 1, type: 1, stock: 1 } }
   ]);
 
   if (!candidates.length) return 0;
 
+  let used = 0;
   const ops = [];
-  for (const c of candidates) {
-    if (Math.random() < TICK.restockChance) {
-      const inc = randInt(TICK.restockIncMin, TICK.restockIncMax);
-      ops.push({
-        updateOne: {
-          filter: { _id: c._id, stock: 0 },
-          update: { $inc: { stock: inc } }
-        }
-      });
-    }
-  }
-  if (!ops.length) return 0;
 
+  for (const c of candidates) {
+    if (used >= limit) break;
+    if (Math.random() >= TICK.restockChance) continue;
+
+    const inc = randInt(TICK.restockIncMin, TICK.restockIncMax);
+    const ceiling = maxStockFor(c.type);
+    const nextStock = Math.min(ceiling, inc); // c.stock is 0 by match
+    if (nextStock <= 0) continue;
+
+    ops.push({
+      updateOne: {
+        filter: { _id: c._id, stock: 0 },
+        update: { $set: { stock: nextStock } }
+      }
+    });
+    used += 1;
+  }
+
+  if (!ops.length) return 0;
   const res = await Product.bulkWrite(ops, { ordered: false });
   return res.modifiedCount || 0;
 }
 
 async function applyGlobalPriceEvent(event) {
   const stamp = `${event.name}-${new Date(event.startedAt).toISOString()}`;
-  const multiplier = event.magnitude ?? 1;
+  const multiplier = Number(event.magnitude) || 1;
 
   const res = await Product.updateMany(
     { lastEventApplied: { $ne: stamp } },
@@ -197,9 +228,30 @@ async function applyGlobalPriceEvent(event) {
       {
         $set: {
           price: {
-            $max: [
-              "$priceFloor",
-              { $round: [{ $multiply: ["$price", multiplier] }, 0] }
+            $min: [
+              {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ["$type", "cpu"] }, then: 1200 },
+                    { case: { $eq: ["$type", "video-card"] }, then: 2500 },
+                    { case: { $eq: ["$type", "motherboard"] }, then: 600 },
+                    { case: { $eq: ["$type", "memory"] }, then: 400 },
+                    { case: { $eq: ["$type", "power-supply"] }, then: 400 },
+                    { case: { $eq: ["$type", "cpu-cooler"] }, then: 250 },
+                    { case: { $eq: ["$type", "case"] }, then: 400 },
+                    { case: { $eq: ["$type", "case-fan"] }, then: 80 },
+                    { case: { $eq: ["$type", "internal-hard-drive"] }, then: 500 },
+                    { case: { $eq: ["$type", "solid-state-drive"] }, then: 700 }
+                  ],
+                  default: 10000
+                }
+              },
+              {
+                $max: [
+                  "$priceFloor",
+                  { $round: [{ $multiply: ["$price", multiplier] }, 0] }
+                ]
+              }
             ]
           },
           lastEventApplied: stamp
@@ -207,6 +259,7 @@ async function applyGlobalPriceEvent(event) {
       }
     ]
   );
+
   return { modified: res.modifiedCount || 0, stamp };
 }
 
@@ -234,7 +287,7 @@ async function cleanupExpiredEventsFast(list) {
 }
 
 // -----------------------------------------------------------------------------
-// Event trigger logic (unchanged except no full scans)
+// Event trigger logic (no full scans)
 // -----------------------------------------------------------------------------
 async function maybeTriggerEvent() {
   const alreadyActive = activeEvents.some(
@@ -269,7 +322,6 @@ async function maybeTriggerEvent() {
       event = { ...event, name: 'Supply Chain Disruption', type: 'global', effect: 'restrictStock',
         description: 'Restocking is temporarily halted due to logistics issues.' };
     } else if (typePicked === 'Hype Wave') {
-      // Use one random product id without loading all products
       const [rp] = await Product.aggregate([
         { $sample: { size: 1 } },
         { $project: { _id: 1, name: 1 } }
@@ -284,7 +336,6 @@ async function maybeTriggerEvent() {
 
     activeEvents.push(event);
     await Event.create(event);
-    // Not pushing to all products here; application happens in the tick
   }
 }
 
@@ -295,12 +346,13 @@ async function runSimulationStep(io) {
   try {
     const now = new Date();
 
-    // 1) Resolve boosted product ids from active events without loading all products
+    // 1) Resolve boosted product ids from active events
     const boostedIds = activeEvents
       .filter(e => e.effect === 'boostDemand' && e.productId)
       .map(e => e.productId);
 
     // 2) Simulate purchases atomically; bias toward boosted when present
+    let purchasesMade = 0;
     const purchasesToTry = TICK.purchasesPerTick;
     for (let i = 0; i < purchasesToTry; i++) {
       const candidate = await pickRandom(boostedIds);
@@ -308,13 +360,14 @@ async function runSimulationStep(io) {
 
       const updated = await tryPurchase(candidate._id, now);
       if (updated) {
-        // Clamp after read in case the doc lacks priceFloor pipeline clamp
-        const floor = minPriceFor(updated.type);
+        purchasesMade += 1;
+        // Clamp to per-doc floor after read (safety if pipeline missed it)
+        const floor = typeof updated.priceFloor === 'number' ? updated.priceFloor : 10;
         if (updated.price < floor) {
           const fixed = await Product.findOneAndUpdate(
             { _id: updated._id },
             { $set: { price: floor } },
-            { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1 } }
+            { new: true, projection: { name: 1, price: 1, type: 1, stock: 1, salesCount: 1, lastSoldAt: 1, priceFloor: 1 } }
           ).lean();
           if (fixed) {
             bufferHistory(fixed, now);
@@ -328,28 +381,18 @@ async function runSimulationStep(io) {
     }
 
     // 3) Apply cold price drops in one batch
-    const coldModified = await applyColdDrops(now);
-    if (coldModified > 0) {
-      // Optional: fetch a small sample of modified docs for deltas.
-      // For simplicity, omit here; UI will catch next change stream or next tick.
-    }
+    await applyColdDrops(now);
 
     // 4) Restock some zero-stock products in one batch (unless restricted)
     const stockRestricted = activeEvents.some(e => e.effect === 'restrictStock');
     if (!stockRestricted) {
-      const restocked = await restockSome();
-      if (restocked > 0) {
-        // Optionally fetch a sample for deltas; omitted for brevity.
-      }
+      await restockSome(Math.max(purchasesMade, 1)); // single call; no 'restocked' var
     }
 
     // 5) Apply any active global price events in one batch
     for (const e of activeEvents) {
       if (e.effect === 'priceDrop' || e.effect === 'priceIncrease') {
-        const { modified } = await applyGlobalPriceEvent(e);
-        if (modified > 0) {
-          // Optionally sample changed docs; omitted.
-        }
+        await applyGlobalPriceEvent(e);
       }
     }
 
