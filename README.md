@@ -8,7 +8,7 @@ This Node.js project simulates a dynamic PC component marketplace. Products like
 
 It also features seed scripts for testing, JSON-based data loading, and mock economic behaviors like purchase surges and stock depletion.
 
-![Screenshot Description](assets/screenshot.png)
+![Dashboard showing product price fluctuations](assets/screenshot.png)
 
 ## Key features:
 - Demand-based price fluctuations
@@ -77,9 +77,20 @@ It also features seed scripts for testing, JSON-based data loading, and mock eco
 - [x] Demand-based pricing
 - [x] Hype wave events
 - [x] WebSocket updates
-- [ ] Product price history
+- [x] Product price history
 - [x] PC parts Rest API
-- [ ] Dashboard data updates
+- [x] Dashboard data updates
+- What's next:
+- [ ] User Accounts & Sessions
+- [ ] Admin Dashboard Controls
+- [ ] Predictive Analytics
+- [ ] ...
+
+## Development Notes
+
+- Products are updated by the simulation engine in timed ticks
+- Events (e.g. hype waves) temporarily boost demand
+- WebSockets broadcast state changes to connected dashboards
 
 ## Contributing
 
@@ -98,7 +109,7 @@ Distributed under the MIT License. See `LICENSE.md` for more information.
 
 Safwane Ahdi – [Email me](mailto:safwane.ahdi@student.ehb.be)
 
-Project Link: [https://github.com/your_username/pc-economy-sim](https://github.com/your_username/pc-economy-sim)
+Project Link: [https://github.com/EHB-MCT/remedial-assignment-safwane-ahdi](https://github.com/EHB-MCT/remedial-assignment-safwane-ahdi)
 
 
 ## Acknowledgments
@@ -108,3 +119,9 @@ Project Link: [https://github.com/your_username/pc-economy-sim](https://github.c
 - [Best README Template](https://github.com/othneildrew/Best-README-Template)
 - [ChatGPT](https://chatgpt.com/)
 
+## References
+
+- AI Assistance: Used ChatGPT for coding assistance, debugging during development, coding convenience, and assistance with exploring programming languages and frameworks not yet learned.
+- [Python Proxy](https://chatgpt.com/share/68a06ebf-a9b4-8001-97c7-74bf386f303b)
+- [Engine Optimization](https://chatgpt.com/share/68a06fd2-23bc-8001-81cb-b5f6581942d9)
+- [Dashboard improvements](https://chatgpt.com/share/68a07021-1604-8001-be04-59775d142c1b)

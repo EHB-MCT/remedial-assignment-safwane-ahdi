@@ -5,11 +5,11 @@ const http = require('http');
 const socketIO = require('socket.io');
 const cors = require('cors');
 
-const productRoutes = require('./routes/products');
-const eventRoutes = require('./routes/events');
-const runSimulationStep = require('./simulator/engine');
-const { refreshFromPcpp } = require('./jobs/refreshFromPcpp');
-const Product = require('./models/Product');
+const productRoutes = require('../routes/products');
+const eventRoutes = require('../routes/events');
+const runSimulationStep = require('../simulator/engine');
+const { refreshFromPcpp } = require('../jobs/refreshFromPcpp');
+const Product = require('../models/Product');
 
 const app = express();
 app.use(cors());

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const Product = require('./models/Product');
-const data = require('./data/pc_parts_static_dataset.json');
+const Product = require('../models/Product');
+const data = require('../data/pc_parts_static_dataset.json');
 require('dotenv').config();
 
 mongoose.connect(process.env.MONGO_URI, {
