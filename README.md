@@ -13,6 +13,7 @@ The app includes:
 - Mock economic behaviors like purchase surges, restocking, and demand-driven price spikes  
 
 <img width="600" src="assets/dashboard.PNG" alt="Dashboard Screenshot">
+<img width="600" src="assets/db.PNG" alt="db Screenshot">
 
 ---
 
