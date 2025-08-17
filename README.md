@@ -62,16 +62,16 @@ The app includes:
    PORT=5000
    ```
 
-4. Seed the database
+4. Start the Python proxy (PCPartPicker fetcher)  
+   In a separate terminal, run:
    ```sh
-   node seed.js
-   # or
-   node seedFromJson.js
-   ```
+   cd pcpp_proxy
+   uvicorn pcpp_proxy:app --host 0.0.0.0 --port 8081 --reload
 
 5. Start the server
    ```sh
-   npm start
+   cd src
+   node server.js
    ```
 
 ## ▶️ Usage
