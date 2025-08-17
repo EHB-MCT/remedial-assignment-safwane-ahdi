@@ -6,9 +6,10 @@
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
+  <!-- Charting + Sockets -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="app.js"></script>
+  <script defer src="app.js"></script>
 </head>
 
 <body>
@@ -34,6 +35,53 @@
         <div id="activeEvent" class="event-box"></div>
       </section>
 
+      <!-- Filters -->
+      <section id="filters">
+        <div class="filters-header">
+          <h3>Filter Products</h3>
+        </div>
+
+        <!-- Type tabs (built dynamically) -->
+        <div id="typeTabs" class="tabs">
+          <!-- JS will populate: <button class="tab active" data-type="">All</button> ... -->
+        </div>
+
+        <!-- Control row -->
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="filter-price-min">Price</label>
+            <div class="range">
+              <input type="number" id="filter-price-min" placeholder="Min">
+              <span class="dash">–</span>
+              <input type="number" id="filter-price-max" placeholder="Max">
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-stock">Stock</label>
+            <select id="filter-stock">
+              <option value="">All</option>
+              <option value="in">In stock</option>
+              <option value="out">Out of stock</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-sales-min">Sales</label>
+            <div class="range">
+              <input type="number" id="filter-sales-min" placeholder="Min">
+              <span class="dash">–</span>
+              <input type="number" id="filter-sales-max" placeholder="Max">
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <button id="filter-apply" class="btn primary">Apply</button>
+            <button id="filter-reset" class="btn">Reset</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Charts -->
       <section id="charts">
         <div class="chart-container">
@@ -48,33 +96,40 @@
           <h3>Stock Over Time</h3>
           <canvas id="stockTimelineChart"></canvas>
         </div>
-      </section>
-
-      <section id="lists">
-<section id="product-list">
-        <h2>Product List</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Stock</th>
-              <th>Price</th>
-              <th>Sales</th>
-              <th>Last Sold</th>
-            </tr>
-          </thead>
-          <tbody id="product-body"></tbody>
-        </table>
-      </section>
-
-      <!-- Event History -->
-      <section id="eventHistorySection">
-        <div id="eventHistory" class="event-history"></div>
-      </section>
+        <div class="chart-container">
+          <h3>Revenue Over Time</h3>
+          <canvas id="revenueTimelineChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <h3>Low Stock Alerts</h3>
+          <canvas id="lowStockChart"></canvas>
+        </div>
       </section>
 
       <!-- Product List -->
-      
+      <section id="lists">
+        <section id="product-list">
+          <h2>Product List</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Stock</th>
+                <th>Price</th>
+                <th>Sales</th>
+                <th>Last Sold</th>
+              </tr>
+            </thead>
+            <tbody id="product-body"></tbody>
+          </table>
+        </section>
+
+        <!-- Event History -->
+        <section id="eventHistorySection">
+          <div id="eventHistory" class="event-history"></div>
+        </section>
+      </section>
     </main>
   </div>
 </body>
