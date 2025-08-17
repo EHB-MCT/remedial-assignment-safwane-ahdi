@@ -8,7 +8,7 @@ This Node.js project simulates a dynamic PC component marketplace. Products like
 
 It also features seed scripts for testing, JSON-based data loading, and mock economic behaviors like purchase surges and stock depletion.
 
-![Dashboard showing product price fluctuations](assets/screenshot.png)
+<img width="600" src="assets/dashboard.PNG" alt="Dashboard Screenshot">
 
 ## Key features:
 - Demand-based price fluctuations
